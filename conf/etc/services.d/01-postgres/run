@@ -1,0 +1,5 @@
+#!/bin/ash
+NAME="POSTGRES" 
+COMMAND="/usr/local/bin/postgres-launcher" 
+WAIT="/tmp/postgres"
+exec service-handler "$NAME" "$COMMAND" "$WAIT"

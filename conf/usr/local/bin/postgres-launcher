@@ -1,0 +1,3 @@
+#!/bin/ash
+
+su postgres -s /bin/ash -c 'postgres -D {PGDATA}'

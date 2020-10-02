@@ -1,0 +1,112 @@
+#!/usr/bin/with-contenv ash
+
+do_query(){
+  echo "$1" >> /tmp/queries.sql
+}
+
+exec_queries(){
+  cat /tmp/queries.sql | su - postgres -s /bin/sh -c "postgres --single -D $PGDATA"
+  return $?
+}
+
+is_db_enabled(){
+    NAME="DB_"$COUNTER"_NAME"
+    DB_NAME=$(eval 'echo $'$NAME)
+    if [ -z "$DB_NAME" ];
+    then
+      [ "$DEBUG" ] && echo "> No next DB" && echo
+      return 1
+    fi
+
+    NAME="DB_"$COUNTER"_PASS"
+    DB_PASS=$(eval 'echo $'$NAME)
+    if [ -z "$DB_PASS" ];
+    then 
+        DB_PASS=$PSQL_PASS
+    fi
+    
+    [ "$DEBUG" ] && echo "> user '$DB_NAME' enable with pass '$DB_PASS'" 
+    return 0
+}
+
+next(){
+    [ "$DEBUG" ] && echo "> Get next DB"
+    COUNTER=$(($COUNTER + 1))
+}
+
+chown -R postgres "$PGDATA"
+mkdir -p /run/postgresql
+chown -R postgres /run/postgresql
+sed -i "s;{PGDATA};$PGDATA;g" /usr/local/bin/postgres-launcher
+
+COUNTER=0
+
+if [ -z "$(ls -A "$PGDATA")" ]; then
+    su - postgres -s /bin/sh -c "initdb -D $PGDATA"
+    sed -ri "s/^#(listen_addresses\s*=\s*)\S+/\1'*'/" "$PGDATA"/postgresql.conf
+    sed -ri "s/^#(password_encryption\s*=\s*)\S+/\1'scram-sha-256'/" "$PGDATA"/postgresql.conf
+    echo 0 > /tmp/postgres
+
+    #clear pg_hba.conf
+    echo > "$PGDATA"/pg_hba.conf
+    echo 
+
+    #run configuration only if the root password is set
+    if [ ! "$PSQL_PASS" ]; then
+      echo "======================================================="
+      echo "!!! Use \$PSQL_PASS env var to secure your database !!!"
+      echo "======================================================="
+      exit 1
+    fi
+
+    #generate all users and databases
+    while [ 1 -eq 1 ];
+    do
+      if ! is_db_enabled; then break; fi
+
+      NAME="DB_"$COUNTER"_CREATOR"
+      CREATOR=$(eval 'echo $'$NAME)
+
+      createSql="CREATE DATABASE $DB_NAME;"
+      userSql="CREATE USER $DB_NAME WITH ENCRYPTED PASSWORD '$DB_PASS';"
+      grantPrivilege="GRANT ALL ON DATABASE $DB_NAME TO $DB_NAME;"
+      alterCreate="ALTER USER $DB_NAME CREATEDB;"
+
+      do_query "$createSql"
+      do_query "$userSql"
+      do_query "$grantPrivilege"
+      [ "$CREATOR" ] && do_query "$alterCreate"
+      
+      if [ "$CREATOR" ]; then which="all"; else which="$DB_NAME"; fi 
+      echo "host $which $DB_NAME 0.0.0.0/0 scram-sha-256" >> "$PGDATA"/pg_hba.conf
+
+      [ "$DEBUG" ] && echo "> User '$DB_NAME' created with access to '$DB_NAME' DB with pass '$DB_PASS'"
+      [ "$DEBUG" ] && [ "$CREATOR" ] && echo "  User'$DB_NAME' can create other DB"
+      [ "$DEBUG" ] && echo "> Allow user '$DB_NAME' to connect to '$DB_NAME' DB" && echo 
+      
+      
+      next
+    done
+
+    if [ "$PSQL_USER" != 'postgres' ]; then op=CREATE; else op=ALTER; fi
+    superUserSql="$op USER $PSQL_USER WITH SUPERUSER PASSWORD '$PSQL_PASS';"
+    do_query "$superUserSql"
+    [ "$DEBUG" ] && echo "> User '$PSQL_USER' created with access to everything with pass '$PSQL_PASS'"
+    for addr in "127.0.0.1/32" "::1/128"; do
+      echo "host all $PSQL_USER $addr scram-sha-256" >> "$PGDATA"/pg_hba.conf
+      [ "$DEBUG" ] && echo "> Allow user '$PSQL_USER' to connect to everything via $addr"
+    done
+
+    exec_queries
+    [ "$DEBUG" ] && echo "> Configuration done!" && echo
+
+    # internal start of server in order to allow set-up using psql-client
+    # does not listen on TCP/IP and waits until start finishes
+    su - postgres -s /bin/sh -c "pg_ctl -D \"$PGDATA\" -o \"-c listen_addresses=''\" -w start"
+    echo
+    su - postgres -s /bin/sh -c "pg_ctl -D $PGDATA -m fast -w stop"
+
+    { echo; echo "host all all 0.0.0.0/0 reject"; } >> "$PGDATA"/pg_hba.conf
+else
+  echo 0 > /tmp/postgres
+fi

@@ -1,0 +1,23 @@
+version: '3.1'
+
+services:
+
+  postgres:
+    build: .
+    environment:
+      - PGDATA=/var/lib/postgresql/data
+      - PSQL_USER=root
+      - PSQL_PASS=root
+      
+      - DB_0_NAME=db0
+      - DB_0_PASS=pass0
+
+      - DB_1_NAME=db1
+      - DB_1_PASS=pass1
+      - DB_1_CREATOR=1
+
+      - DEBUG=1
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
