@@ -56,7 +56,7 @@ if [ -z "$(ls -A "$PGDATA")" ]; then
       echo "======================================================="
       echo "!!! Use \$PSQL_PASS env var to secure your database !!!"
       echo "======================================================="
-      exit 1
+      echo 1 > /tmp/postgres
     fi
 
     #generate all users and databases
