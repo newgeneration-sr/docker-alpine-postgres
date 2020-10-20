@@ -5,6 +5,8 @@
 - PGDATA=/var/lib/postgresql/data ( data position in the container )
 - PSQL_USER=root ( psql root user )
 - PSQL_PASS=root ( psql root password )
+- PSQL_INITDB_ARGS=args (initdb extra args)
+- PGSQL_ROOT_ACCESS="ip" (for debug only -> allow this ip to connect to pgsql [default is localhost])
       
 - DB_0_NAME=db0 ( first database name and user access )
 - DB_0_PASS=pass0 ( first database pasword )
@@ -27,6 +29,8 @@ services:
       - PGDATA=/var/lib/postgresql/data
       - PSQL_USER=root
       - PSQL_PASS=root
+      - PSQL_INITDB_ARGS=-E 'UTF8' --lc-collate='C' --lc-ctype='C'
+      - PGSQL_ROOT_ACCESS="172.1.0.1/24" 
       
       - DB_0_NAME=db0
       - DB_0_PASS=pass0

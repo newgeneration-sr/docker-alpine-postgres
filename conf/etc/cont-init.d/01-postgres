@@ -42,7 +42,8 @@ sed -i "s;{PGDATA};$PGDATA;g" /usr/local/bin/postgres-launcher
 COUNTER=0
 
 if [ -z "$(ls -A "$PGDATA")" ]; then
-    su - postgres -s /bin/sh -c "initdb -D $PGDATA"
+    echo "initdb -D $PGDATA  $PSQL_INITDB_ARGS"
+    su - postgres -s /bin/sh -c "initdb -D $PGDATA  $PSQL_INITDB_ARGS"
     sed -ri "s/^#(listen_addresses\s*=\s*)\S+/\1'*'/" "$PGDATA"/postgresql.conf
     sed -ri "s/^#(password_encryption\s*=\s*)\S+/\1'scram-sha-256'/" "$PGDATA"/postgresql.conf
     echo 0 > /tmp/postgres
@@ -92,7 +93,7 @@ if [ -z "$(ls -A "$PGDATA")" ]; then
     superUserSql="$op USER $PSQL_USER WITH SUPERUSER PASSWORD '$PSQL_PASS';"
     do_query "$superUserSql"
     [ "$DEBUG" ] && echo "> User '$PSQL_USER' created with access to everything with pass '$PSQL_PASS'"
-    for addr in "127.0.0.1/32" "::1/128"; do
+    for addr in $PGSQL_ROOT_ACCESS "127.0.0.1/32" "::1/128"; do
       echo "host all $PSQL_USER $addr scram-sha-256" >> "$PGDATA"/pg_hba.conf
       [ "$DEBUG" ] && echo "> Allow user '$PSQL_USER' to connect to everything via $addr"
     done
