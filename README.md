@@ -1,6 +1,6 @@
 ![docker build automated](https://img.shields.io/docker/cloud/automated/dotriver/postgres)
 ![docker build status](https://img.shields.io/docker/cloud/build/dotriver/postgres)
-![docker build status](https://img.shields.io/docker/cloud/pulls/dotriver/postgres)
+![docker build status](https://img.shields.io/docker/pulls/dotriver/postgres)
 
 # PostgreSQL on Alpine Linux + S6 Overlay
 
